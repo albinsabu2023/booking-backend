@@ -145,7 +145,7 @@
 		</div>
 
 		<!-- for booking each room -->
-		<form action="${pageContext.request.contextPath}/bookingst/save" method="post">
+		<form action="${pageContext.request.contextPath}/bookings/save" method="post">
 			<div id="bookingModal" class="booking-modal">
 				<h3>Book Room</h3>
 				<input type="hidden" id="bookIndex" name="roomId" value="">
@@ -190,9 +190,13 @@
 					<input type="checkbox" id="snacksRequired" name="snacksRequired">
 					<label for="snacksRequired">Snacks Required</label>
 				</div>
-
+				 
 				<button id="saveBooking" type="submit">Confirm Booking</button>
 				<button id="closeBooking">Cancel</button>
+				<!-- Add this just above the "Confirm Booking" button in your form -->
+<div class="validation-summary" id="validationSummary">
+  <!-- Validation messages will be added here dynamically -->
+</div>
 			</div>
 		</form>
 		<!-- Popup message div -->
@@ -338,6 +342,242 @@
     overlay.style.display = "none";
   });
 	
+  
+  //-------------------
+  // Add this code to your existing script section in book.jsp
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Get all the necessary form elements
+  const bookForm = document.querySelector("form[action*='bookings/save']");
+  const maxCapacityInput = document.getElementById("bookMaxCapacity");
+  const requestedCapacityInput = document.getElementById("bookCapacity");
+  const bookDateInput = document.getElementById("bookDate");
+  const bookDurationSelect = document.getElementById("bookDuration");
+  const bookFromTimeSelect = document.getElementById("bookFromTime");
+  const bookEndTimeInput = document.getElementById("bookEndTime");
+  const saveBookingBtn = document.getElementById("saveBooking");
+
+  // Function to create or update validation message
+  function showValidationMessage(inputElement, message, isError = true) {
+    // Remove any existing validation message for this input
+    const existingMessage = inputElement.parentElement.querySelector(".validation-message");
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+    
+    // Only create a message if one is provided
+    if (message) {
+      const messageElement = document.createElement("div");
+      messageElement.className = isError ? "validation-message error" : "validation-message success";
+      messageElement.textContent = message;
+      inputElement.parentElement.appendChild(messageElement);
+      return messageElement;
+    }
+    return null;
+  }
+
+  // Function to validate capacity
+  function validateCapacity() {
+    const maxCapacity = parseInt(maxCapacityInput.value);
+    const requestedCapacity = parseInt(requestedCapacityInput.value);
+    
+    // Remove any existing validation messages
+    showValidationMessage(requestedCapacityInput, "");
+    
+    // Check if capacity is empty
+    if (!requestedCapacity) {
+      showValidationMessage(requestedCapacityInput, "Capacity is required");
+      return false;
+    }
+    
+    // Check if requested capacity exceeds max capacity
+    if (requestedCapacity > maxCapacity) {
+      showValidationMessage(requestedCapacityInput, `Requested capacity exceeds maximum capacity of ${maxCapacity}`);
+      return false;
+    }
+    
+    // Check if requested capacity is less than or equal to 0
+    if (requestedCapacity <= 0) {
+      showValidationMessage(requestedCapacityInput, "Capacity must be greater than zero");
+      return false;
+    }
+    
+    // If all checks pass, show success message
+    showValidationMessage(requestedCapacityInput, "Valid capacity", false);
+    return true;
+  }
+
+  // Function to validate booking date
+  function validateDate() {
+    const selectedDate = bookDateInput.value;
+    
+    // Remove any existing validation messages
+    showValidationMessage(bookDateInput, "");
+    
+    // Check if date is selected
+    if (!selectedDate) {
+      showValidationMessage(bookDateInput, "Please select a date");
+      return false;
+    }
+    
+    // Check if selected date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const bookingDate = new Date(selectedDate);
+    
+    if (bookingDate < today) {
+      showValidationMessage(bookDateInput, "Cannot book for past dates");
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Update end time when duration or start time changes
+  function updateEndTime() {
+    const fromTime = bookFromTimeSelect.value;
+    const duration = bookDurationSelect.value;
+    bookEndTimeInput.value = calculateEndTime(fromTime, duration);
+    
+    // Show a success message to confirm the update
+    showValidationMessage(bookEndTimeInput, `End time updated to ${bookEndTimeInput.value}`, false);
+    
+    // Hide the message after 2 seconds
+    setTimeout(() => {
+      showValidationMessage(bookEndTimeInput, "");
+    }, 2000);
+  }
+
+  // Calculate end time based on start time and duration
+  function calculateEndTime(fromTime, duration) {
+    const timeMap = {
+      "9:00 AM": 9,
+      "11:00 AM": 11,
+      "1:00 PM": 13,
+      "3:00 PM": 15,
+    };
+
+    let startHour = timeMap[fromTime];
+    let durationFloat = parseFloat(duration);
+
+    // Calculate total hours and minutes
+    let totalHours = Math.floor(startHour + durationFloat);
+    let totalMinutes = (durationFloat % 1) * 60;
+
+    // Format time
+    let period = totalHours >= 12 ? "PM" : "AM";
+    let formattedHour = totalHours > 12 ? totalHours - 12 : totalHours;
+    formattedHour = formattedHour === 0 ? 12 : formattedHour; // Handle 12 AM/PM
+    let formattedMinutes = totalMinutes > 0 ? ":" + totalMinutes : ":00";
+
+    return `${formattedHour}${formattedMinutes} ${period}`;
+  }
+
+  // Validate all fields before form submission
+  function validateForm(event) {
+    // Check each validation function
+    const isCapacityValid = validateCapacity();
+    const isDateValid = validateDate();
+    
+    // If any validation fails, prevent form submission
+    if (!isCapacityValid || !isDateValid) {
+      event.preventDefault();
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Add event listeners
+  if (requestedCapacityInput) {
+    requestedCapacityInput.addEventListener("input", validateCapacity);
+    requestedCapacityInput.addEventListener("change", validateCapacity);
+  }
+  
+  if (bookDateInput) {
+    bookDateInput.addEventListener("change", validateDate);
+  }
+  
+  if (bookDurationSelect && bookFromTimeSelect) {
+    bookDurationSelect.addEventListener("change", updateEndTime);
+    bookFromTimeSelect.addEventListener("change", updateEndTime);
+  }
+  
+  // Add form submission event listener
+  if (bookForm) {
+    bookForm.addEventListener("submit", validateForm);
+  }
+  
+  // Initialize the end time when the page loads
+  if (bookDurationSelect && bookFromTimeSelect && bookEndTimeInput) {
+    updateEndTime();
+  }
+});
+//Add this code to your existing script section in book.jsp
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Get the status filter checkbox and location dropdown
+  const statusFilterCheckbox = document.getElementById("status-filter");
+  const locationFilter = document.getElementById("location");
+  
+  // Function to filter rooms based on status and location
+  function filterRooms() {
+    const showActiveOnly = statusFilterCheckbox.checked;
+    const selectedLocation = locationFilter.value;
+    
+    // Get all room cards
+    const roomCards = document.querySelectorAll('.room-card');
+    
+    roomCards.forEach(card => {
+      // Get data attributes from the card
+      const isActive = card.getAttribute('data-active') === 'true';
+      const location = card.getAttribute('data-location');
+      
+      // Initialize visibility flag
+      let shouldShow = true;
+      
+      // Apply status filter if checked
+      if (showActiveOnly && !isActive) {
+        shouldShow = false;
+      }
+      
+      // Apply location filter if not set to "all-loc"
+      if (selectedLocation !== 'all-loc' && location !== selectedLocation) {
+        shouldShow = false;
+      }
+      
+      // Show or hide the room card
+      card.style.display = shouldShow ? 'block' : 'none';
+    });
+    
+    // Check if any rooms are visible after filtering
+    const visibleRooms = document.querySelectorAll('.room-card[style="display: block;"]');
+    const noRoomsMessage = document.querySelector('.no-rooms');
+    
+    // If no rooms are visible after filtering, show a message
+    if (visibleRooms.length === 0) {
+      // Create "no rooms" message if it doesn't exist
+      if (!noRoomsMessage) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'no-rooms';
+        messageDiv.innerHTML = '<p>No rooms available with the selected filters. Please try different criteria.</p>';
+        document.getElementById('roomList').appendChild(messageDiv);
+      } else {
+        noRoomsMessage.style.display = 'block';
+      }
+    } else if (noRoomsMessage) {
+      // Hide the "no rooms" message if it exists and there are visible rooms
+      noRoomsMessage.style.display = 'none';
+    }
+  }
+  
+  // Add event listeners for the filters
+  statusFilterCheckbox.addEventListener('change', filterRooms);
+  locationFilter.addEventListener('change', filterRooms);
+  
+  // Initial filter application
+  filterRooms();
+});
   </script>
 
 </body>

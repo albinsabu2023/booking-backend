@@ -226,6 +226,108 @@
                 sidebar.classList.toggle('mobile-open');
             });
         });
+     // Add this code to your existing script section in bookings_list.jsp
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // Get the search form and input
+            const searchForm = document.querySelector(".search-form");
+            const searchInput = searchForm.querySelector("input[name='bookingId']");
+            
+            // Add event listener for form submission
+            searchForm.addEventListener("submit", function(event) {
+                // Prevent the default form submission
+                event.preventDefault();
+                
+                // Get the search term and convert to lowercase for case-insensitive comparison
+                const searchTerm = searchInput.value.trim().toLowerCase();
+                
+                // Get all booking rows in the table (excluding the header row)
+                const bookingRows = document.querySelectorAll(".booking-table tbody tr");
+                
+                // Variable to track if any matches were found
+                let matchesFound = false;
+                
+                // Loop through each row
+                bookingRows.forEach(row => {
+                    // Get the booking ID cell (first column)
+                    const bookingIdCell = row.querySelector("td:first-child");
+                    
+                    if (bookingIdCell) {
+                        const bookingId = bookingIdCell.textContent.trim().toLowerCase();
+                        
+                        // Check if the booking ID contains the search term
+                        if (bookingId.includes(searchTerm)) {
+                            row.style.display = ""; // Show the row
+                            matchesFound = true;
+                        } else {
+                            row.style.display = "none"; // Hide the row
+                        }
+                    }
+                });
+                
+                // Show a message if no matches were found
+                const noResultsRow = document.querySelector(".no-results-row");
+                
+                if (!matchesFound) {
+                    if (!noResultsRow) {
+                        // Create a new row for the "no results" message
+                        const tbody = document.querySelector(".booking-table tbody");
+                        const newRow = document.createElement("tr");
+                        newRow.className = "no-results-row";
+                        newRow.innerHTML = `<td colspan="8" style="text-align: center;">No bookings found with ID containing "${searchTerm}"</td>`;
+                        tbody.appendChild(newRow);
+                    } else {
+                        noResultsRow.style.display = ""; // Show the existing "no results" row
+                        noResultsRow.querySelector("td").textContent = `No bookings found with ID containing "${searchTerm}"`;
+                    }
+                } else if (noResultsRow) {
+                    noResultsRow.style.display = "none"; // Hide the "no results" row if matches were found
+                }
+            });
+            
+            // Add a reset button to clear the search
+            const searchContainer = document.querySelector(".search-container");
+            const resetButton = document.createElement("button");
+            resetButton.textContent = "Reset";
+            resetButton.className = "reset-btn";
+            resetButton.style.marginLeft = "10px";
+            resetButton.style.padding = "8px 15px";
+            resetButton.style.backgroundColor = "#6c757d";
+            resetButton.style.color = "white";
+            resetButton.style.border = "none";
+            resetButton.style.borderRadius = "4px";
+            resetButton.style.cursor = "pointer";
+            
+            searchContainer.querySelector("div").appendChild(resetButton);
+            
+            // Add event listener for reset button
+            resetButton.addEventListener("click", function() {
+                searchInput.value = ""; // Clear the search input
+                
+                // Show all rows
+                const bookingRows = document.querySelectorAll(".booking-table tbody tr");
+                bookingRows.forEach(row => {
+                    if (!row.classList.contains("no-results-row")) {
+                        row.style.display = ""; // Show all normal rows
+                    }
+                });
+                
+                // Hide the "no results" row if it exists
+                const noResultsRow = document.querySelector(".no-results-row");
+                if (noResultsRow) {
+                    noResultsRow.style.display = "none";
+                }
+            });
+            
+            // Add an event listener for real-time filtering (optional)
+            searchInput.addEventListener("input", function() {
+                // Trigger form submission for real-time filtering
+                if (this.value.trim().length >= 2 || this.value.trim().length === 0) {
+                    const event = new Event("submit", { cancelable: true });
+                    searchForm.dispatchEvent(event);
+                }
+            });
+        });
     </script>
 </body>
 </html>

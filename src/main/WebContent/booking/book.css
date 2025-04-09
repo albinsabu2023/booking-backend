@@ -769,3 +769,131 @@ justify-content: space-around;
   color: #6c2bd9;;
   align-items: center;
 }
+/* Add these CSS styles to your book.css file or inside a <style> tag */
+
+.validation-message {
+  font-size: 12px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  padding: 5px;
+  border-radius: 3px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.validation-message.error {
+  color: #d9534f;
+  background-color: rgba(217, 83, 79, 0.1);
+  border-left: 3px solid #d9534f;
+}
+
+.validation-message.success {
+  color: #5cb85c;
+  background-color: rgba(92, 184, 92, 0.1);
+  border-left: 3px solid #5cb85c;
+}
+
+.form-item {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+/* Improve the position of validation messages */
+.form-item label + input + .validation-message,
+.form-item label + select + .validation-message {
+	postition:absolute;
+  top: 0;
+}
+
+.no-rooms {
+  padding: 20px;
+  text-align: center;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin: 20px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.no-rooms p {
+  color: #6c757d;
+  font-size: 16px;
+  margin: 0;
+}
+/* Room availability status styling */
+.room-card[data-active="true"] {
+  background-color: rgba(144, 238, 144, 0.2); /* Light green background for available rooms */
+  border-left: 4px solid #4CAF50; /* Green border accent */
+}
+
+.room-card[data-active="false"] {
+  background-color: rgba(255, 182, 193, 0.2); /* Light red background for unavailable rooms */
+  border-left: 4px solid #F44336; /* Red border accent */
+}
+
+/* Status label styling */
+.room-status.active {
+  background-color: #4CAF50; /* Green background for "Available" text */
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.room-status.inactive {
+  background-color: #F44336; /* Red background for "Unavailable" text */
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}/* Room availability status styling */
+.room-card[data-active="true"] {
+  background-color: rgba(144, 238, 144, 0.2); /* Light green background for available rooms */
+  border-left: 4px solid #4CAF50; /* Green border accent */
+}
+
+.room-card[data-active="false"] {
+  background-color: rgba(255, 182, 193, 0.2); /* Light red background for unavailable rooms */
+  border-left: 4px solid #F44336; /* Red border accent */
+}
+
+/* Status label styling */
+.room-status.active {
+  background-color: #4CAF50; /* Green background for "Available" text */
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.room-status.inactive {
+  background-color: #F44336; /* Red background for "Unavailable" text */
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+-----
+.validation-summary {
+  margin: 15px 0;
+  padding: 10px 15px;
+  border-radius: 4px;
+  background-color: #ffebee;
+  border-left: 4px solid #f44336;
+  color: #d32f2f;
+  font-size: 0.9em;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.validation-message {
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+.validation-message::before {
+  content: "⚠ ";
+  margin-right: 5px;
+}
+
+
