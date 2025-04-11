@@ -1,142 +1,179 @@
 package com.booking.dao;
+
 import java.sql.*;
-import java.sql.Date;
-import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import com.booking.model.Booking;
 
 public class BookingDAO {
-    private final static String GET_ALL_BOOKINGS = "SELECT * FROM bookings";
-    private final static String GET_BOOKING_BY_ID = "SELECT * FROM bookings WHERE booking_id = ?";
-    private final static String GET_UPCOMING_BOOKINGS = "SELECT * FROM bookings WHERE date >= ? AND status != 'Cancelled'";
-    private final static String GET_CANCELLED_BOOKINGS = "SELECT * FROM bookings WHERE status = 'Cancelled'";
-    private final static String INSERT_BOOKING = "INSERT INTO bookings (employee_id, roomId, date, fromtime, totime, status, capacity) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    private final static String UPDATE_BOOKING = "UPDATE bookings SET employee_id=?, roomId=?, date=?, fromtime=?, totime=?, capacity=? WHERE booking_id=?";
-    private final static String CANCEL_BOOKING = "UPDATE bookings SET status='Cancelled' WHERE booking_id=?";
+    // Existing methods
     
     public static List<Booking> getBookings(Connection con) throws SQLException {
         List<Booking> bookings = new ArrayList<>();
-        Statement st = con.createStatement();
-        ResultSet rs = st.executeQuery(GET_ALL_BOOKINGS);
+        String sql = "SELECT * FROM Bookings ORDER BY date DESC, fromtime DESC";
         
-        while(rs.next()) {
-            int bId = rs.getInt("booking_id");
-            int eId = rs.getInt("employee_id");
-            int rId = rs.getInt("roomId");
-            Date bDate = rs.getDate("date");
-            Time fTime = rs.getTime("fromtime");
-            Time tTime = rs.getTime("totime");
-            String status = rs.getString("status");
-            int capacity = rs.getInt("capacity");
-            
-            Booking b = new Booking(bId, eId, rId, bDate, tTime, fTime, status, capacity);
-            bookings.add(b);
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                bookings.add(mapBookingFromResultSet(rs));
+            }
         }
-        
         return bookings;
-    }
-    
-    public static Booking getBookingById(Connection con, int bookingId) throws SQLException {
-        PreparedStatement ps = con.prepareStatement(GET_BOOKING_BY_ID);
-        ps.setInt(1, bookingId);
-        ResultSet rs = ps.executeQuery();
-        
-        if(rs.next()) {
-            int bId = rs.getInt("booking_id");
-            int eId = rs.getInt("employee_id");
-            int rId = rs.getInt("roomId");
-            Date bDate = rs.getDate("date");
-            Time fTime = rs.getTime("fromtime");
-            Time tTime = rs.getTime("totime");
-            String status = rs.getString("status");
-            int capacity = rs.getInt("capacity");
-            
-            return new Booking(bId, eId, rId, bDate, tTime, fTime, status, capacity);
-        }
-        
-        return null;
     }
     
     public static List<Booking> getUpcomingBookings(Connection con) throws SQLException {
         List<Booking> bookings = new ArrayList<>();
-        PreparedStatement ps = con.prepareStatement(GET_UPCOMING_BOOKINGS);
-        ps.setDate(1, Date.valueOf(LocalDate.now()));
-        ResultSet rs = ps.executeQuery();
+        String sql = "SELECT * FROM Bookings WHERE status = 'upcoming' ORDER BY date, fromtime";
         
-        while(rs.next()) {
-            int bId = rs.getInt("booking_id");
-            int eId = rs.getInt("employee_id");
-            int rId = rs.getInt("roomId");
-            Date bDate = rs.getDate("date");
-            Time fTime = rs.getTime("fromtime");
-            Time tTime = rs.getTime("totime");
-            String status = rs.getString("status");
-            int capacity = rs.getInt("capacity");
-            
-            Booking b = new Booking(bId, eId, rId, bDate, tTime, fTime, status, capacity);
-            bookings.add(b);
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                bookings.add(mapBookingFromResultSet(rs));
+            }
         }
-        
         return bookings;
     }
     
     public static List<Booking> getCancelledBookings(Connection con) throws SQLException {
         List<Booking> bookings = new ArrayList<>();
-        PreparedStatement ps = con.prepareStatement(GET_CANCELLED_BOOKINGS);
-        ResultSet rs = ps.executeQuery();
+        String sql = "SELECT * FROM Bookings WHERE status = 'cancelled' ORDER BY date DESC, fromtime DESC";
         
-        while(rs.next()) {
-            int bId = rs.getInt("booking_id");
-            int eId = rs.getInt("employee_id");
-            int rId = rs.getInt("roomId");
-            Date bDate = rs.getDate("date");
-            Time fTime = rs.getTime("fromtime");
-            Time tTime = rs.getTime("totime");
-            String status = rs.getString("status");
-            int capacity = rs.getInt("capacity");
-            
-            Booking b = new Booking(bId, eId, rId, bDate, tTime, fTime, status, capacity);
-            bookings.add(b);
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                bookings.add(mapBookingFromResultSet(rs));
+            }
         }
-        
         return bookings;
     }
     
+    public static Booking getBookingById(Connection con, int bookingId) throws SQLException {
+        String sql = "SELECT * FROM Bookings WHERE booking_id = ?";
+        
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, bookingId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return mapBookingFromResultSet(rs);
+            }
+        }
+        return null;
+    }
+    
     public static void addBooking(Connection con, Booking booking) throws SQLException {
-        PreparedStatement ps = con.prepareStatement(INSERT_BOOKING, Statement.RETURN_GENERATED_KEYS);
-        ps.setInt(1, booking.getEmpId());
-        ps.setInt(2, booking.getRoomId());
-        ps.setDate(3, booking.getBookDate());
-        ps.setTime(4, booking.getFromTime());
-        ps.setTime(5, booking.getToTime());
-        ps.setString(6, booking.getStatus());
-        ps.setInt(7, booking.getCapacity());
+        String sql = "INSERT INTO Bookings (employee_id, roomId, date, fromtime, totime, status, capacity) VALUES (?, ?, ?, ?, ?, ?, ?)";
         
-        ps.executeUpdate();
-        
-        // Get the generated ID
-        ResultSet rs = ps.getGeneratedKeys();
-        if(rs.next()) {
-            booking.setBookingId(rs.getInt(1));
+        try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, booking.getEmployeeId());
+            ps.setInt(2, booking.getRoomId());
+            ps.setDate(3, booking.getBookDate());
+            ps.setTime(4, booking.getFromTime());
+            ps.setTime(5, booking.getToTime());
+            ps.setString(6, booking.getStatus());
+            ps.setInt(7, booking.getCapacity());
+            
+            ps.executeUpdate();
+            
+            ResultSet rs = ps.getGeneratedKeys();
+            if (rs.next()) {
+                booking.setBookingId(rs.getInt(1));
+            }
         }
     }
     
     public static void updateBooking(Connection con, Booking booking) throws SQLException {
-        PreparedStatement ps = con.prepareStatement(UPDATE_BOOKING);
-        ps.setInt(1, booking.getEmpId());
-        ps.setInt(2, booking.getRoomId());
-        ps.setDate(3, booking.getBookDate());
-        ps.setTime(4, booking.getFromTime());
-        ps.setTime(5, booking.getToTime());
-        ps.setInt(6, booking.getCapacity());
-        ps.setInt(7, booking.getBookingId());
+        String sql = "UPDATE Bookings SET employee_id = ?, roomId = ?, date = ?, fromtime = ?, totime = ?, status = ?, capacity = ? WHERE booking_id = ?";
         
-        ps.executeUpdate();
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, booking.getEmployeeId());
+            ps.setInt(2, booking.getRoomId());
+            ps.setDate(3, booking.getBookDate());
+            ps.setTime(4, booking.getFromTime());
+            ps.setTime(5, booking.getToTime());
+            ps.setString(6, booking.getStatus());
+            ps.setInt(7, booking.getCapacity());
+            ps.setInt(8, booking.getBookingId());
+            
+            ps.executeUpdate();
+        }
     }
     
     public static void cancelBooking(Connection con, int bookingId) throws SQLException {
-        PreparedStatement ps = con.prepareStatement(CANCEL_BOOKING);
-        ps.setInt(1, bookingId);
-        ps.executeUpdate();
+        String sql = "UPDATE Bookings SET status = 'cancelled' WHERE booking_id = ?";
+        
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, bookingId);
+            ps.executeUpdate();
+        }
     }
+    
+    // Add this new method to check for time slot availability
+    public static boolean isTimeSlotAvailable(Connection con, int roomId, Date bookingDate, 
+                                             Time startTime, Time endTime) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM Bookings WHERE roomId = ? AND date = ? AND status = 'upcoming' " +
+                     "AND ((fromtime <= ? AND totime > ?) OR (fromtime < ? AND totime >= ?) OR (fromtime >= ? AND totime <= ?))";
+        
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, roomId);
+            ps.setDate(2, bookingDate);
+            ps.setTime(3, endTime);
+            ps.setTime(4, startTime);
+            ps.setTime(5, endTime);
+            ps.setTime(6, startTime);
+            ps.setTime(7, startTime);
+            ps.setTime(8, endTime);
+            
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) == 0; // If count is 0, the slot is available
+            }
+        }
+        return true; // Default to available if query fails
+    }
+    
+    private static Booking mapBookingFromResultSet(ResultSet rs) throws SQLException {
+        return new Booking(
+            rs.getInt("booking_id"),
+            rs.getInt("employee_id"),
+            rs.getInt("roomId"),
+            rs.getDate("date"),
+            rs.getTime("fromtime"),
+            rs.getTime("totime"),
+            rs.getString("status"),
+            rs.getInt("capacity")
+        );
+    }
+    //for preventing double booking
+    public static boolean hasExistingBooking(Connection con, int roomId, Date bookDate, Time fromTime) {
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        
+        try {
+            // Updated column names to match the ones used in other queries
+            String query = "SELECT COUNT(*) FROM Bookings WHERE roomId = ? AND date = ? AND fromtime = ? AND status != 'cancelled'";
+            ps = con.prepareStatement(query);
+            ps.setInt(1, roomId);
+            ps.setDate(2, bookDate);
+            ps.setTime(3, fromTime);
+            
+            rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            // Close resources
+            try {
+                if (rs != null) rs.close();
+                if (ps != null) ps.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        
+        return false;
+    }
+
 }

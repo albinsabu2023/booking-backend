@@ -5,6 +5,8 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Date;
@@ -15,12 +17,11 @@ import java.util.List;
 import java.util.Locale;
 
 import com.booking.dao.BookingDAO;
+import com.booking.dao.RoomDAO;
 import com.booking.dbconnect.DBConnect;
 import com.booking.model.Booking;
+import com.booking.model.Room;
 
-/**
- * Servlet implementation class BookingServlet
- */
 @WebServlet("/bookings/*")
 public class BookingServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -60,7 +61,77 @@ public class BookingServlet extends HttpServlet {
                 int bookingId = Integer.parseInt(request.getParameter("id"));
                 BookingDAO.cancelBooking(con, bookingId);
                 response.sendRedirect(request.getContextPath() + "/bookings/list");
-            } else {
+            }  else if(action.equals("/check-availability")) {
+                response.setContentType("text/plain");
+                
+                try {
+                    // Validate parameters
+                    String roomIdStr = request.getParameter("roomId");
+                    String dateStr = request.getParameter("date");
+                    String fromTimeStr = request.getParameter("fromTime");
+                    String durationStr = request.getParameter("duration");
+                    
+                    // Check if any parameters are missing
+                    if (roomIdStr == null || dateStr == null || fromTimeStr == null || durationStr == null) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.getWriter().write("Missing required parameters");
+                        return;
+                    }
+                    
+                    // Parse parameters with proper error handling
+                    int roomId;
+                    try {
+                        roomId = Integer.parseInt(roomIdStr);
+                    } catch (NumberFormatException e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.getWriter().write("Invalid room ID format");
+                        return;
+                    }
+                    
+                    Date bookDate;
+                    try {
+                        bookDate = Date.valueOf(dateStr);
+                    } catch (IllegalArgumentException e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.getWriter().write("Invalid date format. Use YYYY-MM-DD");
+                        return;
+                    }
+                    
+                    Time fromTime;
+                    try {
+                        fromTime = Time.valueOf(convertTo24HourFormat(fromTimeStr));
+                    } catch (Exception e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.getWriter().write("Invalid from time format");
+                        return;
+                    }
+                    
+                    double durationHours;
+                    try {
+                        durationHours = Double.parseDouble(durationStr);
+                    } catch (NumberFormatException e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        response.getWriter().write("Invalid duration format");
+                        return;
+                    }
+                    
+                    // Calculate end time based on from time and duration
+                    int durationMillis = (int)(durationHours * 60 * 60 * 1000);
+                    Time toTime = new Time(fromTime.getTime() + durationMillis);
+                    
+                    // Check availability
+                    boolean isAvailable = BookingDAO.isTimeSlotAvailable(con, roomId, bookDate, fromTime, toTime);
+                    
+                    response.getWriter().write(isAvailable ? "available" : "unavailable");
+                } catch (Exception e) {
+                    // Log the exception
+                    e.printStackTrace();
+                    
+                    // Return a generic error response
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    response.getWriter().write("Server error checking availability");
+                }
+            }else {
                 System.out.println("No matching route for: " + action);
                 response.sendRedirect(request.getContextPath() + "/bookings/list");
             }
@@ -71,43 +142,59 @@ public class BookingServlet extends HttpServlet {
         }
     }
 
-    /**
-     * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
-     */
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getPathInfo();
         Connection con = DBConnect.getConnection();
+        HttpSession session = request.getSession(false);
         
         try {
             if (action.equals("/save")) {
                 // Get parameters from form
-                int employeeId = Integer.parseInt(request.getParameter("employeeId"));
+            	
+            	
+            	
+                int employeeId = session != null && session.getAttribute("employeeId") != null ? 
+                    (Integer)session.getAttribute("employeeId") : 2; // Default to 200 if not logged in
+                    
                 int roomId = Integer.parseInt(request.getParameter("roomId"));
                 String dateStr = request.getParameter("bookingDate");
                 Date bookDate = Date.valueOf(dateStr);
                 
                 String fromTimeStr = request.getParameter("fromTime");
-                String toTimeStr = request.getParameter("toTime");
+                double duration = Double.parseDouble(request.getParameter("duration"));
                 
-                // Debug prints
-                System.out.println("From Time (raw): " + fromTimeStr);
-                System.out.println("To Time (raw): " + toTimeStr);
-                
-                // Validate time values
-                if (fromTimeStr == null || fromTimeStr.trim().isEmpty()) {
-                    throw new IllegalArgumentException("From Time cannot be empty");
-                }
-                if (toTimeStr == null || toTimeStr.trim().isEmpty()) {
-                    throw new IllegalArgumentException("To Time cannot be empty");
-                }
-                
+                // Calculate end time
                 Time fromTime = Time.valueOf(convertTo24HourFormat(fromTimeStr));
-                Time toTime = Time.valueOf(convertTo24HourFormat(toTimeStr));
+                int durationMillis = (int)(duration * 60 * 60 * 1000);
+                Time toTime = new Time(fromTime.getTime() + durationMillis);
+                
                 int capacity = Integer.parseInt(request.getParameter("requiredCapacity"));
                 
-                // Create new booking - use "upcoming" as default status for new bookings
+                // First check if the time slot is available
+                boolean alreadyBooked = BookingDAO.hasExistingBooking(con, roomId, bookDate, fromTime);
+
+                if (alreadyBooked) {
+                    // If the slot is already booked, send back an error
+                    request.setAttribute("error", "This time slot is already booked. Please choose another time.");
+                    request.setAttribute("roomId", roomId);
+                    
+                    // Get room details for redisplay
+                    Room room = RoomDAO.getRoomById(con, roomId);
+                    request.setAttribute("room", room);
+                    
+                    // Forward back to the booking form
+                    request.getRequestDispatcher("/booking/book.jsp").forward(request, response);
+                    return;
+                }
+                
+                // Time slot is available, create new booking
                 Booking booking = new Booking(0, employeeId, roomId, bookDate, fromTime, toTime, "upcoming", capacity);
                 BookingDAO.addBooking(con, booking);
+                
+                // Set success message
+                if (session != null) {
+                    session.setAttribute("successMessage", "Booking confirmed successfully!");
+                }
                 
                 response.sendRedirect(request.getContextPath() + "/bookings/preview");
             } else if (action.equals("/update")) {
@@ -121,18 +208,6 @@ public class BookingServlet extends HttpServlet {
                 String fromTimeStr = request.getParameter("fromTime");
                 String toTimeStr = request.getParameter("toTime");
                 
-                // Debug prints
-                System.out.println("From Time (raw): " + fromTimeStr);
-                System.out.println("To Time (raw): " + toTimeStr);
-                
-                // Validate time values
-                if (fromTimeStr == null || fromTimeStr.trim().isEmpty()) {
-                    throw new IllegalArgumentException("From Time cannot be empty");
-                }
-                if (toTimeStr == null || toTimeStr.trim().isEmpty()) {
-                    throw new IllegalArgumentException("To Time cannot be empty");
-                }
-                
                 Time fromTime = Time.valueOf(convertTo24HourFormat(fromTimeStr));
                 Time toTime = Time.valueOf(convertTo24HourFormat(toTimeStr));
                 int capacity = Integer.parseInt(request.getParameter("requiredCapacity"));
@@ -143,9 +218,34 @@ public class BookingServlet extends HttpServlet {
                     status = "upcoming";
                 }
                 
-                // Update existing booking
+                // Get the original booking to check if times have changed
+                Booking originalBooking = BookingDAO.getBookingById(con, bookingId);
+                boolean needsAvailabilityCheck = 
+                    !originalBooking.getBookDate().equals(bookDate) ||
+                    !originalBooking.getFromTime().equals(fromTime) ||
+                    !originalBooking.getToTime().equals(toTime);
+                
+                // Only check availability if the booking details have changed
+                if (needsAvailabilityCheck) {
+                    boolean isAvailable = BookingDAO.isTimeSlotAvailable(con, roomId, bookDate, fromTime, toTime);
+                    
+                    if (!isAvailable) {
+                        // If not available, send back an error
+                        request.setAttribute("error", "The selected time slot is not available. Please choose another time.");
+                        request.setAttribute("booking", originalBooking);
+                        request.getRequestDispatcher("/booking/edit.jsp").forward(request, response);
+                        return;
+                    }
+                }
+                
+                // Time slot is available or unchanged, update the booking
                 Booking booking = new Booking(bookingId, employeeId, roomId, bookDate, fromTime, toTime, status, capacity);
                 BookingDAO.updateBooking(con, booking);
+                
+                // Set success message
+                if (session != null) {
+                    session.setAttribute("successMessage", "Booking updated successfully!");
+                }
                 
                 response.sendRedirect(request.getContextPath() + "/bookings/list");
             } else {

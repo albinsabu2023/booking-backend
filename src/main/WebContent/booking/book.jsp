@@ -1,4 +1,3 @@
-
 <%@page import="com.booking.dbconnect.DBConnect"%>
 <%@page import="com.booking.dao.*"%>
 <%@page import="com.booking.model.*"%>
@@ -148,7 +147,7 @@
 		<form action="${pageContext.request.contextPath}/bookings/save" method="post">
 			<div id="bookingModal" class="booking-modal">
 				<h3>Book Room</h3>
-				<input type="hidden" id="bookIndex" name="roomId" value="">
+				<input type="hidden" id="roomId" name="roomId" value="">
 				<div class="booking-id" id="bookingIdDisplay"></div>
 
 				<div class="form-item">
@@ -271,10 +270,12 @@
    function openBookingModal(id,name,location,capacity){
 	   console.log(id,name,location);
 	   bookingModal.style.display="block";
+	   document.getElementById("roomId").value = id;
 	   document.getElementById("bookRoomName").value = name;
 	    document.getElementById("bookLocation").value = location;
 	    document.getElementById("bookMaxCapacity").value = capacity;
    }
+   
    document.getElementById("closeBooking")
    .addEventListener("click", function () {
      document.getElementById("bookingModal").style.display = "none";
@@ -290,6 +291,7 @@
 		function updateEndTime() {
 		    const fromTime = bookFromTimeSelect.value;
 		    const duration = bookDurationSelect.value;
+		   l
 		    bookEndTimeInput.value = calculateEndTime(fromTime, duration);
 		}
 		
@@ -578,6 +580,84 @@ document.addEventListener("DOMContentLoaded", function() {
   // Initial filter application
   filterRooms();
 });
+
+//simply checking if it is booked or not
+document.addEventListener("DOMContentLoaded", function() {
+	  const bookDateInput = document.getElementById("bookDate");
+	  const bookFromTimeSelect = document.getElementById("bookFromTime");
+	  
+	  // Function to disable past time slots for the current day
+	  function updateTimeOptions() {
+	    const selectedDate = new Date(bookDateInput.value);
+	    const today = new Date();
+	    
+	    // Reset all options to enabled state first
+	    Array.from(bookFromTimeSelect.options).forEach(option => {
+	      option.disabled = false;
+	    });
+	    
+	    // Only apply time restrictions if the selected date is today
+	    if (selectedDate.toDateString() === today.toDateString()) {
+	      const currentHour = today.getHours();
+	      
+	      // Map of option values to their hour in 24h format
+	      const timeMap = {
+	        "9:00 AM": 9,
+	        "11:00 AM": 11,
+	        "1:00 PM": 13,
+	        "3:00 PM": 15
+	      };
+	      
+	      // Disable options that have already passed
+	      Array.from(bookFromTimeSelect.options).forEach(option => {
+	        const optionHour = timeMap[option.value];
+	        if (optionHour <= currentHour) {
+	          option.disabled = true;
+	        }
+	      });
+	      
+	      // If the currently selected option is now disabled, select the first enabled option
+	      if (bookFromTimeSelect.selectedOptions[0].disabled) {
+	        const firstEnabledOption = Array.from(bookFromTimeSelect.options).find(option => !option.disabled);
+	        if (firstEnabledOption) {
+	          bookFromTimeSelect.value = firstEnabledOption.value;
+	          // Update end time since start time has changed
+	          if (typeof updateEndTime === 'function') {
+	            updateEndTime();
+	          }
+	        }
+	      }
+	    }
+	  }
+	  
+	  // Update time options when date changes
+	  bookDateInput.addEventListener("change", updateTimeOptions);
+	  
+	  // Add to the existing validateDate function to check times as well
+	  const originalValidateDate = validateDate;
+	  window.validateDate = function() {
+	    const basicValidation = typeof originalValidateDate === 'function' ? originalValidateDate() : true;
+	    
+	    if (!basicValidation) return false;
+	    
+	    const selectedDate = new Date(bookDateInput.value);
+	    const today = new Date();
+	    
+	    // If it's today and the selected time has passed
+	    if (selectedDate.toDateString() === today.toDateString()) {
+	      const selectedOption = bookFromTimeSelect.options[bookFromTimeSelect.selectedIndex];
+	      if (selectedOption.disabled) {
+	        showValidationMessage(bookFromTimeSelect, "This time slot has already passed");
+	        return false;
+	      }
+	    }
+	    
+	    return true;
+	  };
+	  
+	  // Initialize on page load
+	  updateTimeOptions();
+	});
   </script>
 
 </body>

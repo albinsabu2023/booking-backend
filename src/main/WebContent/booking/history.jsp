@@ -83,6 +83,14 @@
             color: red;
             font-weight: bold;
         }
+        #popup-cancel{
+          color:black;
+          background-color:red;
+        }
+        #popup-confirm{
+          color:black;
+          background-color:green;
+        }
     </style>
 </head>
 <body>
@@ -186,7 +194,7 @@
                         <td>
                             <% if (!"Cancelled".equals(booking.getStatus())) { %>
                                 <a href="${pageContext.request.contextPath}/bookings/edit?id=<%= booking.getBookingId() %>" class="action-btn edit-btn">Edit</a>
-                                <a href="${pageContext.request.contextPath}/bookings/cancel?id=<%= booking.getBookingId() %>" class="action-btn cancel-btn" onclick="return confirm('Are you sure you want to cancel this booking?')">Cancel</a>
+                                <a href="#" class="action-btn cancel-btn" onclick="event.preventDefault(); showPopup('Do you want to cancel?', function() { window.location.href='${pageContext.request.contextPath}/bookings/cancel?id=<%= booking.getBookingId() %>'; });">Cancel</a>
                             <% } else { %>
                                 <span>No actions available</span>
                             <% } %>
@@ -205,15 +213,52 @@
                 </tbody>
             </table>
         </div>
+        <div class="overlay" id="overlay" style="display: none;"></div>
+<div class="popup" id="popup" style="display: none;">
+    <div class="popup-content" id="popup-content"></div>
+    <div style="text-align: right; margin-top: 10px;">
+        <button class="popup-close" id="popup-confirm">OK</button>
+        <button class="popup-close" id="popup-cancel">Cancel</button>
+    </div>
+</div>
+        
     </div>
 
     <script>
+    const overlay = document.getElementById('overlay');
+    const popupBox = document.getElementById('popup');
+    const popupContent = document.getElementById('popup-content');
+    const confirmBtn = document.getElementById('popup-confirm');
+    const cancelBtn = document.getElementById('popup-cancel');
+
+    function showPopup(message, onConfirm) {
+        popupContent.innerText = message;
+        overlay.style.display = 'block';
+        popupBox.style.display = 'block';
+
+        // Remove previous event listener
+        confirmBtn.onclick = function () {
+            hidePopup();
+            if (typeof onConfirm === 'function') {
+                onConfirm();
+            }
+        };
+
+        cancelBtn.onclick = hidePopup;
+    }
+
+    function hidePopup() {
+        overlay.style.display = 'none';
+        popupBox.style.display = 'none';
+    }
+
         // Toggle sidebar functionality
         document.addEventListener("DOMContentLoaded", function () {
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('content');
             const toggleBtn = document.getElementById('toggleSidebar');
             const mobileToggle = document.getElementById('mobileToggle');
+           
             
             // Toggle sidebar
             toggleBtn.addEventListener('click', () => {
